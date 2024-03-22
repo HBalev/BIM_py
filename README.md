@@ -1,2 +1,2 @@
 # BIM_py
- BIM applications in python
+open-source BIM applications in python
