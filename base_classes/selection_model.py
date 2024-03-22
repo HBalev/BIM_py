@@ -11,6 +11,20 @@ from base_classes.structural_model import StructuralModel
 
 
 class SelectionModel(StructuralModel):
+    '''
+            Class SelectionModel models the spatial connections on a selection of ifc-entities
+            :param selection - list of GlobalIds of selected entities
+            :param model - opened Ifc-model-entity
+            :attr  entities - list of Element-objects based on the selection list
+            :attr  graph - networkx Graph-object containing all selected entities and their connections
+            :attr  g_tree - ifc-geometric-tree object
+            :attr  idx3d - rtree-spatial-tree object
+            :method  ifc2_3_graph - extracts graph connections based on ifc-model and Distribution Ports
+            :method  export_graph - exports .json - version of the graph formatted as dictionary of list and edgelist with edge attributes
+            :method  fill_rtree_spatial - fills the self.idx3d-rtree with aabb-s of the selected entities
+            :method  fill_ifc_tree - fills the self.g_tree-ifc-tree with geometry
+            :method  aabb_trimesh_collision_procedure - fills the self.graph with connections obtained from aabb-intersection and Trimesh-collision analysis
+            '''
     def __init__(self, model, selection):
         super(SelectionModel, self).__init__(model, selection)
         self.g_tree: ifcopenshell.geom.main.tree = ifcopenshell.geom.tree()
@@ -34,12 +48,5 @@ class SelectionModel(StructuralModel):
         for flag in reqs.keys():
             if not getattr(self, flag):
                 getattr(self, reqs[flag])()
-        # if not (self.ifc_graph_flag and self.path_rtree_index):
-        #     self.ifc2_3_graph()
-        #     self.rtree_filling()
-        # elif self.path_rtree_index:
-        #     self.ifc2_3_graph()
-        # elif self.ifc_graph_flag:
-        #     self.rtree_filling()
         self.idx3d = index.Index(p.filename, properties=p)
         self.rtree_trimesh_collision_procedure()
