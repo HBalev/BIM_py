@@ -25,15 +25,17 @@ p.idx_extension = 'index'
 
 
 def fill(f):
+    '''
+    wrapper function for every data structure fill operation
+    :param f - function that operates with a data structure
+    '''
     @functools.wraps(f)
     def wrapper(self, *args, **kwargs):
         print("Start filling")
-        # print(list(self.selection))
         iterator = ifcopenshell.geom.iterator(settings, self.model, multiprocessing.cpu_count(),
                                               include=list(map(lambda x: self.model.by_guid(x), list(self.selection))))
         if iterator.initialize():
             while True:
-                # print(iterator)
                 f(self, iterator, *args, **kwargs)
                 if not iterator.next():
                     break
@@ -43,12 +45,15 @@ def fill(f):
 
 
 def export_json(filenames, datas):
+    '''
+    function that exports the data from datas in .json-format in the specified filename
+    :param filenames - list or tuple of filenames
+    :param datas - list or tuple of data to be exported
+    '''
     if isinstance(filenames, list) or isinstance(filenames, tuple):
         for pair in zip(filenames, datas):
             filename = pair[0]
             data = pair[1]
-            print(filename)
-            print(type(data))
             if isinstance(list(data.keys())[0], tuple):
                 with open(filename, "w") as outfile:
                     json.dump({str(k): v for k, v in data.items()}, outfile, cls=NpEncoder)
@@ -64,6 +69,9 @@ def export_json(filenames, datas):
 
 
 class NpEncoder(json.JSONEncoder):
+    '''
+    Helper class for exporting .json that handles non-serializable data types
+    '''
     def default(self, obj):
         if isinstance(obj, np.integer):
             return int(obj)
@@ -109,8 +117,6 @@ class Shape:
         self.grouped_faces: list[list] = [[self.faces[i], self.faces[i + 1], self.faces[i + 2]] for i in
                                           range(0, len(self.faces), 3)]
         self.mesh: trimesh.base.Trimesh = trimesh.Trimesh(vertices=self.grouped_verts, faces=self.grouped_faces)
-        # print(type(self.mesh))
-        # self.voxelized = self.mesh.voxelized(pitch=Element.ptch)
         try:
             self.aabb: tuple[np.array, np.array] = ifcopenshell.util.shape.get_bbox(self.grouped_verts)
         except:
@@ -120,6 +126,9 @@ class Shape:
         return self.guid == other.guid
 
     def get_voxelized(self):
+        '''
+        Function that returns a VoxelGrid - voxelized version of the shape
+        '''
         return self.mesh.voxelized(pitch=Shape.ptch)
 
 
@@ -144,7 +153,6 @@ class Element:
         self.ifc_class = self.entity.is_a()
         if self.entity.Representation:
             self.shape = ifcopenshell.geom.create_shape(settings, self.entity)
-            # print(type(self.shape))
             self.geometry = Shape(self.guid, self.shape)
         if ifcopenshell.util.system.get_element_systems(self.entity):
             self.system = ifcopenshell.util.system.get_element_systems(self.entity)[0]
@@ -180,19 +188,14 @@ class Voxelized:
         self.mesh_path = mesh_path
         self.pitch = pitch
 
-    # self.model=model
 
-    def get_voxelized(self):  #######binvox doesn't work yet
-        print("get_voxelized")
+    def get_voxelized(self):  
         mesh = trimesh.load_mesh(self.mesh_path)
         self.voxelized_scene = mesh.voxelized(self.pitch, method="binvox",
                                               binvox_path=r"C:\Users\hbale\Downloads\binvox.exe")
-        print(dir(self.voxelized_scene))
-        print(type(self.voxelized_scene))
         return self.voxelized_scene
 
     def export_binvox(self):
-        print("export_binvox")
         if self.voxelized_scene:
             self.voxelized_scene.export(str(uuid.uuid4()), 'binvox')
         else:
@@ -200,14 +203,11 @@ class Voxelized:
             self.voxelized_scene.export(str(uuid.uuid4()), 'binvox')
 
     def export_encoding(self) -> str:
-        print("export_encoding")
         filename = "encoding_" + str(uuid.uuid4()) + ".json"
-        print(filename)
         export_json(filename, self.encoding)
         return filename
 
     def get_encoding(self) -> np.array:
-        print("get_encoding")
         if self.voxelized_scene:
             self.encoding = self.voxelized_scene.encoding.dense.tolist()
             return self.encoding
@@ -218,34 +218,15 @@ class Voxelized:
 
     @staticmethod
     def get_encoding_graph(encoding: np.array) -> nx.classes.graph.Graph:
-        # def ngbr_indices(p, bnd):
-        #     p_x, p_y, p_z = p
-        #     p_u = (p_x, p_y, p_z + 1)
-        #     p_d = (p_x, p_y, p_z - 1)
-        #     p_f = (p_x, p_y + 1, p_z)
-        #     p_b = (p_x, p_y - 1, p_z)
-        #     p_r = (p_x + 1, p_y, p_z)
-        #     p_l = (p_x - 1, p_y, p_z)
-        #     ngb = [p_u, p_d, p_f, p_b, p_r, p_l]
-        #     for n in ngb:
-        #         if n[0] < 0 or n[0] > bnd[0] - 2 or n[1] < 0 or n[1] > bnd[1] - 2 or n[2] < 0 or n[2] > bnd[2] - 2:
-        #             ngb.remove(n)
-        #     return ngb
         graph = nx.Graph()
         lst_shp = (len(encoding), len(encoding[0]), len(encoding[0][0]))
-        print(lst_shp)
         voxel_grid = Voxelized.encoding_to_voxel_grid(encoding)
         sparse_indices = voxel_grid.sparse_indices
         list_3d_in_tuple = lambda x: (x[0], x[1], x[2])
-
         for sparse_index in sparse_indices:
-            # print(si)
             graph.add_node(list_3d_in_tuple(sparse_index))
-            # print(graph.number_of_edges())
             act_voxel = Voxel(sparse_index, lst_shp)
-            # si_ngb = ngbr_indices(si, lst_shp)
             for p in act_voxel.get_voxel_neighbours():  # si_ngb:
-                # print(" ",p)
                 try:
                     if encoding[p.x][p.y][p.z]:
                         graph.add_node(p)
@@ -256,27 +237,26 @@ class Voxelized:
 
     @staticmethod
     def encoding_to_voxel_grid(encoding: np.array) -> trimesh.voxel.VoxelGrid:
-        print("encoding_to_voxel_grid")
         return trimesh.voxel.VoxelGrid(np.array(encoding, dtype=bool))
 
     @staticmethod
     def get_filled_encoding(encoding: np.array) -> np.array:
-        print("get_filled_encoding")
         return ndimage.binary_fill_holes(encoding)
 
     @staticmethod
     def get_building_envelope(encoding: np.array) -> np.array:
-        print("get_building_envelope")
         return np.logical_xor(Voxelized.get_filled_encoding(encoding),
                               ndimage.binary_erosion(Voxelized.get_filled_encoding(encoding)))
 
     @staticmethod
     def get_cavity(encoding: np.array) -> np.array:
-        print("get_cavity")
         return np.logical_xor(Voxelized.get_filled_encoding(encoding), encoding)
 
 
 class Voxel:
+    '''
+    Helper class that operates with voxel proximity
+    '''
     def __init__(self, coordinates, bounds):
         self.coordinates = coordinates
         self.bounds = bounds
@@ -303,8 +283,8 @@ class Voxel:
     @staticmethod
     def valid_voxel(voxel):
         return (0 < voxel.x < voxel.bnd_x - 1) or (0 < voxel.y < voxel.bnd_y - 1) or (
-                0 < voxel.z < voxel.bnd_z - 1)  # not(voxel.x < 0 or voxel.x > voxel.bnd_x - 2 or voxel.y < 0 or voxel.y > voxel.bnd_y - 2 or voxel.z < 0 or voxel.z > voxel.bnd_z - 2)
-
+                0 < voxel.z < voxel.bnd_z - 1) 
+        
     def get_point(self, encoding):
         voxel_grid = Voxelized.encoding_to_voxel_grid(encoding)
         return voxel_grid.indices_to_points(self.coordinates)
