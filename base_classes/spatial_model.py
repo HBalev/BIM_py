@@ -13,6 +13,12 @@ from base_classes.base_classes import p, fill, Shape
 
 
 class SpatialModel:
+    '''
+    Base class for all classes that generate and process geometric data and spatial relationships
+    :param model - ifc-model
+    :param selection (optional) - selection list of group of element guids
+    :attr idx3d - rtree-Index object that will be filled with spatial data
+    '''
     tol = 0.5
 
     def __init__(self, model, selection=None):
@@ -49,9 +55,7 @@ class SpatialModel:
         self.idx3d.close()
         print("Idx closed")
         self.path_rtree_index = p.filename
-        print(self.path_rtree_index)
 
     @fill
     def ifc_tree(self, iterator):
-        print("get_ifc_tree")
         self.g_tree.add_element(iterator.get_native())
