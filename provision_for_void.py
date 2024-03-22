@@ -12,6 +12,9 @@ create_guid = lambda: ifcopenshell.guid.compress(uuid.uuid1().hex)
 
 
 def cut_holes(model, pairs):
+    '''
+    Function that cuts openings in construction entities with the form given by modelled void objects
+    '''
     drchbr = []
     for pair in pairs:
         construction_el_guid, void_guid = pair
@@ -24,17 +27,18 @@ def cut_holes(model, pairs):
         opening_element = model.createIfcOpeningElement(create_guid(), owner_history, name, "An awesome opening",
                                                         None, bep_place, bep_rep, None)
         model.add(opening_element)
-        # print(opening_element)
         ifcrelvoid = model.createIfcRelVoidsElement(create_guid(), owner_history, None, None,
                                                     model.by_guid(construction_el_guid), opening_element)
         model.add(ifcrelvoid)
-        # model.remove(durchbruch)
     for el in set(drchbr):
         model.remove(el)
     return model
 
 
 def provision_for_void(file_path):
+    '''
+    Implementation of realising openings in construction entities with the form given by modelled void objects
+    '''
     model = ifcopenshell.open(file_path)
     sel1 = [k.GlobalId for k in model.by_type("IfcElement") if k.is_a('IfcWall') or k.is_a('IfcSlab')]
     sel2 = [k.GlobalId for k in model.by_type("IfcElement") if
