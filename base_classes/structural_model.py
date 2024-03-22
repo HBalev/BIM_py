@@ -11,6 +11,9 @@ from base_classes.base_classes import p, Element, export_json
 
 
 class StructuralModel(SpatialModel):
+    '''
+    Base class for all classes that process geometric data and contain the spatial relationships between the entities as graph, that can be processed
+    '''
     def __init__(self, model, selection):
         super(StructuralModel, self).__init__(model, selection)
         assert isinstance(selection, list)
@@ -41,8 +44,7 @@ class StructuralModel(SpatialModel):
                 self.graph.add_edge(e[0], e[1], attrs={"collision": True})
 
     def rtree_trimesh_collision_procedure(self):
-        print("rtree_trimesh_collision_procedure")
-        for ent_guid in self.selection:  # self.entities.keys():
+        for ent_guid in self.selection:  
             cm_considered = trimesh.collision.CollisionManager()
             cm_collisioned = trimesh.collision.CollisionManager()
             cm_considered, cm_collisioned = self.process_element(ent_guid, self.selection, cm_considered,
