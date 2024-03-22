@@ -9,6 +9,24 @@ from base_classes.base_classes import p, fill, export_json, Shape, Voxelized
 
 
 class SceneModel(SpatialModel):
+    '''
+                Class SceneModel models the triangulated scene based on an ifc-model
+                :param model - opened Ifc-model-entity
+                :attr  num_objs - number of objects in the scene
+                :attr  ptch - voxelization pitch of the model
+                :attr  map_entity_bounds - dictionary with guid->aabb
+                :attr  scene - Trimesh Scene-object to be filled with mesh representations of the objects
+                :attr  idx3d - rtree-spatial-tree object
+                :attr  g_tree - ifc-geometric-tree object
+                :attr  path_scene_mesh_exported - string filename
+                :method  all_geometric_entities - fill simultaniously self.idx3d, self.scene and self.g_tree
+                :method  ifc_tree - fills self.g_tree with geometry
+                :method  rtree_filling - fills the self.idx3d-rtree with aabb-s of the selected entities and updates the path(flag) of the .index-file
+                :method  scene_filling - fills the self.scene with meshes and updates the flag
+                :method  export_scene - exports the self.scene to a .stl
+                :method  get_voxel_mapping - returns two dictionaries that map entity to a list of voxels that lie within the entity and the opposite mapping- voxel to entity
+                :method  get_building_envelope_model - returns a list of GlobalIds of all entities that belong to the geometric building envelope
+                '''
     pitch: float = 0.5
 
     def __init__(self, model):
@@ -45,7 +63,6 @@ class SceneModel(SpatialModel):
         self.scene_flag = True
 
     def export_scene(self):
-        print("export_scene")
         if not self.scene_flag:
             self.scene_filling()
         self.path_scene_mesh_exported = ".".join((self.model_name + "_scene_" + str(uuid.uuid4()), "stl"))
@@ -69,7 +86,6 @@ class SceneModel(SpatialModel):
         map_vxl_to_shape = {}
         get_point_coordinates = lambda e: (e[0][0], e[0][1], e[0][2])
         get_index_coordinates = lambda e: (e[1][0], e[1][1], e[1][2])
-        # print(vxl_scene.points_to_indices(np.array([0.0,0.0,0.0])))
         map_coord_indices = zip(
             self.voxelized.voxelized_scene.indices_to_points(self.voxelized.voxelized_scene.sparse_indices),
             self.voxelized.voxelized_scene.sparse_indices)
@@ -77,13 +93,8 @@ class SceneModel(SpatialModel):
             x, y, z = get_point_coordinates(e)
             bounds_vector = np.repeat(np.array([-self.pitch / 2, self.pitch / 2]), 3)
             coordinate_vector = np.tile(np.array([x, y, z]), 2)
-            # x = e[0][0]
-            # y = e[0][1]
-            # z = e[0][2]
-            # bbox = (x - self.pitch / 2, y - self.pitch / 2, z - self.pitch / 2, x + self.pitch / 2, y + self.pitch / 2,z + self.pitch / 2)
             bbox = bounds_vector + coordinate_vector
             elements = map(lambda x: self.model.by_id(x).GlobalId, list(self.idx3d.intersection(bbox)))
-            # map_vxl_to_shape[(e[1][0], e[1][1], e[1][2])] = []
             map_vxl_to_shape[get_index_coordinates(e)] = []
             for el in elements:
                 map_vxl_to_shape[get_index_coordinates(e)].append(el)
@@ -93,82 +104,23 @@ class SceneModel(SpatialModel):
                     map_shape_to_vxl[el].append(get_index_coordinates(e))
         filename_shape_to_vxl = self.model_name + "_shape_to_vxl_" + str(uuid.uuid4()) + ".json"
         filename_vxl_to_shape = self.model_name + "_vxl_to_shape_" + str(uuid.uuid4()) + ".json"
-        print(filename_vxl_to_shape)
-        print(filename_shape_to_vxl)
         export_json((filename_shape_to_vxl, filename_vxl_to_shape,), (map_shape_to_vxl, map_vxl_to_shape))
         self.map_sh_v = map_shape_to_vxl
         self.map_v_sh = map_vxl_to_shape
         self.mapped = True
 
     def get_voxel_mapping(self):
-        print("get_voxel_mapping")
         reqs = {"path_rtree_index": "rtree_filling", "scene_flag": "scene_filling",
                 "path_scene_mesh_exported": "export_scene"}
         for flag in reqs.keys():
             if not getattr(self, flag):
                 getattr(self, reqs[flag])()
-        # if not (self.path_rtree_index and self.scene_flag and self.path_scene_mesh_exported):
-        #     self.rtree_filling()
-        #     self.scene_filling()
-        #     self.export_scene()
-        # elif self.path_rtree_index and self.scene_flag:
-        #     self.export_scene()
-        # elif self.scene_flag and self.path_scene_mesh_exported:
-        #     self.rtree_filling()
-        # elif self.path_rtree_index:
-        #     self.scene_filling()
-        #     self.export_scene()
-        # elif self.scene_flag:
-        #     self.rtree_filling()
-        #     self.export_scene()
-        # elif self.path_scene_mesh_exported:
-        #     self.rtree_filling()
-        print(8)
-        # self.fill_rtree_spatial()
-        # self.rtree_spatial()
-        # self.trimesh_scene()
-        # self.get_trimesh_scene()
-        # self.export_scene()
         self.idx3d = index.Index(p.filename, properties=p)
         self.voxelized = Voxelized(self.path_scene_mesh_exported, self.pitch)
         self.voxelized.get_voxelized()
         self.mapping_procedure()
-        # encoding = self.voxelized.get_encoding()
-        # map_shape_to_vxl = {}
-        # map_vxl_to_shape = {}
-        # get_point_coordinates = lambda e: (e[0][0], e[0][1], e[0][2])
-        # get_index_coordinates = lambda e: (e[1][0], e[1][1], e[1][2])
-        # # print(vxl_scene.points_to_indices(np.array([0.0,0.0,0.0])))
-        # map_coord_indices = zip(
-        #     self.voxelized.voxelized_scene.indices_to_points(self.voxelized.voxelized_scene.sparse_indices),
-        #     self.voxelized.voxelized_scene.sparse_indices)
-        # for e in map_coord_indices:
-        #     x, y, z = get_point_coordinates(e)
-        #     bounds_vector = np.repeat(np.array([-self.pitch / 2, self.pitch / 2]), 3)
-        #     coordinate_vector = np.tile(np.array([x, y, z]), 2)
-        #     # x = e[0][0]
-        #     # y = e[0][1]
-        #     # z = e[0][2]
-        #     # bbox = (x - self.pitch / 2, y - self.pitch / 2, z - self.pitch / 2, x + self.pitch / 2, y + self.pitch / 2,z + self.pitch / 2)
-        #     bbox = bounds_vector + coordinate_vector
-        #     elements = map(lambda x: self.model.by_id(x).GlobalId, list(self.idx3d.intersection(bbox)))
-        #     # map_vxl_to_shape[(e[1][0], e[1][1], e[1][2])] = []
-        #     map_vxl_to_shape[get_index_coordinates(e)] = []
-        #     for el in elements:
-        #         map_vxl_to_shape[get_index_coordinates(e)].append(el)
-        #         if el not in map_shape_to_vxl.keys():
-        #             map_shape_to_vxl[el] = [get_index_coordinates(e)]
-        #         else:
-        #             map_shape_to_vxl[el].append(get_index_coordinates(e))
-        # filename_shape_to_vxl = "shape_to_vxl" + str(uuid.uuid4()) + ".json"
-        # filename_vxl_to_shape = "vxl_to_shape" + str(uuid.uuid4()) + ".json"
-        # print(filename_vxl_to_shape)
-        # print(filename_shape_to_vxl)
-        # export_json((filename_shape_to_vxl, filename_vxl_to_shape,), (map_shape_to_vxl, map_vxl_to_shape))
-        # return (map_shape_to_vxl, map_vxl_to_shape)
-
+        
     def get_building_envelope_model(self) -> set[str]:
-        print("get_building_envelope_model")
         if not self.mapped:
             self.get_voxel_mapping()
         encoding = self.voxelized.get_encoding()
@@ -177,13 +129,11 @@ class SceneModel(SpatialModel):
         building_envelope = set()
 
         for idx in voxel_grid_shell.sparse_indices:
-            # if (idx[0], idx[1], idx[2]) in map_vxl_shape.keys():
             if tuple(idx) in self.map_v_sh.keys():
                 ls = self.map_v_sh[tuple(idx)]
                 if ls:
                     for k in ls:
                         building_envelope.add(k)
         filename = "building_envelope_" + str(uuid.uuid4()) + ".json"
-        print(filename)
         export_json(filename, building_envelope)
         return building_envelope
