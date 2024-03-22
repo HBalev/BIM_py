@@ -196,5 +196,4 @@ def capacity_propagation_ventilation(file_path, table_path):
 
 ##################################################################################################################################################
 
-capacity_propagation_ventilation(r"C:\Users\hbale\PycharmProjects\Offset_Rotation_tkinter_ifc\BF0174_BT B_Lüftung.ifc",
-                                 r"C:\Users\hbale\PycharmProjects\Offset_Rotation_tkinter_ifc\RLT_Drall.xlsx")
+capacity_propagation_ventilation()
