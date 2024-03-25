@@ -144,18 +144,18 @@ class Element:
         :attr  system - IfcSystem - entity
         '''
 
-    def __init__(self, guid, model):
+    def __init__(self, guid:str, model:ifcopenshell.file):
         assert isinstance(guid, str)
         assert isinstance(model, ifcopenshell.file)
         self.guid = guid
         self.model = model
         self.entity = self.model.by_guid(self.guid)
-        self.ifc_class = self.entity.is_a()
+        self.ifc_class:str = self.entity.is_a()
         if self.entity.Representation:
-            self.shape = ifcopenshell.geom.create_shape(settings, self.entity)
+            self.shape:ifcopenshell.ifcopenshell_wrapper.TriangulationElement = ifcopenshell.geom.create_shape(settings, self.entity)
             self.geometry = Shape(self.guid, self.shape)
         if ifcopenshell.util.system.get_element_systems(self.entity):
-            self.system = ifcopenshell.util.system.get_element_systems(self.entity)[0]
+            self.system:str = ifcopenshell.util.system.get_element_systems(self.entity)[0]
         else:
             self.system = None
 
@@ -185,17 +185,25 @@ class Voxelized:
     def __init__(self, mesh_path, pitch):  # ,model):
         assert isinstance(mesh_path, str)
         assert isinstance(pitch, float)
-        self.mesh_path = mesh_path
-        self.pitch = pitch
+        self.mesh_path:str = mesh_path
+        self.pitch:float = pitch
 
 
-    def get_voxelized(self):  
+    def get_voxelized(self):
+        '''
+        Helper function that loads the scene mesh and outputs the VoxelGrid to the mesh
+        :return: voxelized scene with the given pitch
+        '''
         mesh = trimesh.load_mesh(self.mesh_path)
         self.voxelized_scene = mesh.voxelized(self.pitch, method="binvox",
                                               binvox_path=r"C:\Users\hbale\Downloads\binvox.exe")
         return self.voxelized_scene
 
     def export_binvox(self):
+        '''
+        Helper function that exports the given voxelized scene in binvox format
+        :return:
+        '''
         if self.voxelized_scene:
             self.voxelized_scene.export(str(uuid.uuid4()), 'binvox')
         else:
@@ -203,11 +211,18 @@ class Voxelized:
             self.voxelized_scene.export(str(uuid.uuid4()), 'binvox')
 
     def export_encoding(self) -> str:
+        '''
+        Helper function that exports the encoding of a VoxelGrid to .json-file
+        :return:
+        '''
         filename = "encoding_" + str(uuid.uuid4()) + ".json"
         export_json(filename, self.encoding)
         return filename
 
     def get_encoding(self) -> np.array:
+        '''
+        Method that returns the encoding(occupancy matrix) of the given voxelized scene
+        '''
         if self.voxelized_scene:
             self.encoding = self.voxelized_scene.encoding.dense.tolist()
             return self.encoding
@@ -218,6 +233,11 @@ class Voxelized:
 
     @staticmethod
     def get_encoding_graph(encoding: np.array) -> nx.classes.graph.Graph:
+        '''
+        Static method that returns the proximity graph of a voxelized scene(which voxel is neighbouring which one)
+        :param encoding: occupancy matrix(bool) for the given VoxelGrid
+        :return: proximity graph of the encoding
+        '''
         graph = nx.Graph()
         lst_shp = (len(encoding), len(encoding[0]), len(encoding[0][0]))
         voxel_grid = Voxelized.encoding_to_voxel_grid(encoding)
@@ -237,14 +257,29 @@ class Voxelized:
 
     @staticmethod
     def encoding_to_voxel_grid(encoding: np.array) -> trimesh.voxel.VoxelGrid:
+        '''
+        Static method that takes an encoding and transforms it in a VoxelGrid object
+        :param encoding:
+        :return:
+        '''
         return trimesh.voxel.VoxelGrid(np.array(encoding, dtype=bool))
 
     @staticmethod
     def get_filled_encoding(encoding: np.array) -> np.array:
+        '''
+        Static method that calculates the encoding with filled cavities(holes) and returns the calculated encoding
+        :param encoding:
+        :return: filled encoding(without cavities and holes)
+        '''
         return ndimage.binary_fill_holes(encoding)
 
     @staticmethod
     def get_building_envelope(encoding: np.array) -> np.array:
+        '''
+
+        :param encoding:
+        :return:
+        '''
         return np.logical_xor(Voxelized.get_filled_encoding(encoding),
                               ndimage.binary_erosion(Voxelized.get_filled_encoding(encoding)))
 
