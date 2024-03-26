@@ -102,9 +102,9 @@ class Shape:
     :attr  mesh - Trimesh triangulation object of the shape(based on vertices and faces)
     :attr  aabb - axis aligned bounding box of the object in format (xmin,ymin,zmin,xmax,ymax,zmax)
     '''
-    ptch = 0.1
 
-    def __init__(self, guid, ifc_shape):
+
+    def __init__(self, guid, ifc_shape,pitch):
         assert isinstance(guid, str)
         assert isinstance(ifc_shape, ifcopenshell.ifcopenshell_wrapper.TriangulationElement)
         self.guid = guid
@@ -117,6 +117,7 @@ class Shape:
         self.grouped_faces: list[list] = [[self.faces[i], self.faces[i + 1], self.faces[i + 2]] for i in
                                           range(0, len(self.faces), 3)]
         self.mesh: trimesh.base.Trimesh = trimesh.Trimesh(vertices=self.grouped_verts, faces=self.grouped_faces)
+        self.pitch=pitch
         try:
             self.aabb: tuple[np.array, np.array] = ifcopenshell.util.shape.get_bbox(self.grouped_verts)
         except:
@@ -129,7 +130,7 @@ class Shape:
         '''
         Function that returns a VoxelGrid - voxelized version of the shape
         '''
-        return self.mesh.voxelized(pitch=Shape.ptch)
+        return self.mesh.voxelized(pitch=self.ptch)
 
 
 class Element:
@@ -153,7 +154,7 @@ class Element:
         self.ifc_class:str = self.entity.is_a()
         if self.entity.Representation:
             self.shape:ifcopenshell.ifcopenshell_wrapper.TriangulationElement = ifcopenshell.geom.create_shape(settings, self.entity)
-            self.geometry = Shape(self.guid, self.shape)
+            self.geometry = Shape(self.guid, self.shape,0.1)
         if ifcopenshell.util.system.get_element_systems(self.entity):
             self.system:str = ifcopenshell.util.system.get_element_systems(self.entity)[0]
         else:
